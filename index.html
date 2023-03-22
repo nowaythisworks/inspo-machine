@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width">
+    <title>Inspomachine</title>
+</head>
+
+<body>
+    <!-- create a div to hold our drag-and-dropped images -->
+    <div id="drag-area"></div>
+    <script>
+        // we need the user to be able to drag in image files, and display them in the #drag-area
+
+        // we need to be able to detect when the user is dragging in an image file
+        const dragArea = document.getElementById('drag-area');
+
+        dragArea.addEventListener('dragenter', (e) => e.preventDefault());
+        dragArea.addEventListener('dragover', (e) => e.preventDefault());
+        dragArea.addEventListener('drop', (e) => e.preventDefault());
+
+        var isDraggingAnImage = false;
+        // we need to be able to display the image file in the #drag-area
+        dragArea.addEventListener('drop', (e) => {
+            if (isDraggingAnImage) return;
+            const files = e.dataTransfer.files;
+            const file = files[0];
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = () => {
+                const img = document.createElement('img');
+                const imageID = Math.floor(Math.random() * 10000);
+                // set the class to draggable-image
+                img.classList.add('draggable-object');
+                // set the image's max size to 512x512
+                img.style.maxWidth = '256px';
+                img.style.maxHeight = '256px';
+                // make it resizable
+                img.style.resize = 'both';
+                // set the top and left to the position of the mouse
+                img.style.top = e.clientY + 'px';
+                img.style.left = e.clientX + 'px';
+                img.src = reader.result;
+                dragArea.appendChild(img);
+                // append an invisible object to img with a random number, so we can select it later
+                const imageInvisibleObject = document.createElement('div');
+                imageInvisibleObject.classList.add('identifier');
+                imageInvisibleObject.style.display = "none";
+                imageInvisibleObject.innerHTML = imageID;
+                img.appendChild(imageInvisibleObject);
+
+                // create a single bottom-right resize handle (blue circle with white outline)
+                const handleSize = 10;
+                const resizeHandle = document.createElement('div');
+                resizeHandle.classList.add('resize-handle');
+
+                resizeHandle.style.position = 'absolute';
+                resizeHandle.style.top = e.clientY - (handleSize/2) + 'px';
+                resizeHandle.style.left = e.clientX - (handleSize/2) + 'px';
+
+                resizeHandle.style.width = handleSize + 'px';
+                resizeHandle.style.height = handleSize + 'px';
+                resizeHandle.style.borderRadius = '50%';
+                resizeHandle.style.backgroundColor = 'blue';
+                resizeHandle.style.border = '2px solid white';
+                dragArea.appendChild(resizeHandle);
+
+                // another invisible object to select the resize handle
+                const resizeHandleInvisibleObject = document.createElement('div');
+                resizeHandleInvisibleObject.classList.add('identifier');
+                resizeHandleInvisibleObject.style.display = "none";
+                resizeHandleInvisibleObject.innerHTML = imageID;
+                resizeHandle.appendChild(resizeHandleInvisibleObject);
+            }
+        });
+
+        const removedObjects = [];
+        const removeObject = (obj) => {
+            obj.classList.add('disappear');
+            removedObjects.push(obj);
+            setTimeout(() => {
+                dragArea.removeChild(obj);
+            }, 100);
+        }
+
+        var leftShift = false;
+        document.addEventListener('keydown', (e) => {
+            if (e.key == 'Shift') {
+                leftShift = true;
+            }
+            // if it's backspace or delete, remove the selected elements
+            if (e.key == 'Backspace' || e.key == 'Delete') {
+                const selectedElements = document.querySelectorAll('.selected');
+                for (let i = 0; i < selectedElements.length; i++) {
+                    removeObject(selectedElements[i]);
+                }
+            }
+
+            // on press of ctrl + z, restore the last removed object and remove it from the removedObjects array
+            if (e.key == 'z' && e.ctrlKey) {
+                if (removedObjects.length > 0) {
+                    const lastRemovedObject = removedObjects.pop();
+                    dragArea.appendChild(lastRemovedObject);
+                    lastRemovedObject.classList.remove('disappear');
+                }
+            }
+        });
+        document.addEventListener('keyup', (e) => {
+            if (e.key == 'Shift') {
+                leftShift = false;
+            }
+        });
+
+        // if we mouse click on an object tagged draggable-object, add class "selected"
+        dragArea.addEventListener('click', (e) => {
+            const selectedElements = document.querySelectorAll('.selected');
+            if (e.target.classList.contains('draggable-object')) {
+                if (selectedElements.length == 0)
+                {
+                    e.target.classList.toggle('selected');
+                }
+                else
+                {
+                    if (leftShift)
+                    {
+                        e.target.classList.toggle('selected');
+                    }
+                    else
+                    {
+                        for (let i = 0; i < selectedElements.length; i++) {
+                            selectedElements[i].classList.remove('selected');
+                        }
+                        e.target.classList.toggle('selected');
+                    }
+                }
+            }
+            else
+            {
+                for (let i = 0; i < selectedElements.length; i++) {
+                    selectedElements[i].classList.remove('selected');
+                }
+            }
+        });
+
+        // border effects
+        dragArea.addEventListener('mousemove', (e) => {
+            const borderSize = 2;
+            const accentColor = '#2a2f36';
+            const mainColor = '#151515';
+            // set the background of #drag-area "100%" to the x-position of the mouse as a percentage
+            let mouseXPercent = e.clientX / window.innerWidth * 100;
+            let mouseYPercent = e.clientY / window.innerHeight * 100;
+            // flip the percentages
+            mouseXPercent = 100 - mouseXPercent;
+            mouseYPercent = 100 - mouseYPercent;
+
+            const background = `
+                linear-gradient(${mainColor}, ${mainColor}) ${mouseXPercent}% ${mouseYPercent}%/calc(100% - ${borderSize}px) calc(100% - ${borderSize}px) no-repeat,
+                linear-gradient(90deg, ${accentColor} 0%, ${accentColor} 100%)
+            `;
+            dragArea.style.background = background;
+        });
+    </script>
+    <style>
+        * {
+            margin: 0;
+        }
+
+        @keyframes disappear {
+            to {
+                opacity: 0;
+                transform: scale(0.5);
+            }
+        }
+
+        .disappear {
+            animation: disappear 0.1s;
+            animation-fill-mode: forwards;
+        }
+
+        #drag-area {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+
+            overflow: hidden;
+            color: #4b525f;
+
+            background: black;
+
+            box-sizing: border-box;
+        }
+
+        .draggable-object {
+            position: absolute;
+            resize: both;
+            overflow: auto;
+        }
+
+        .resize-handle {
+            cursor: nwse-resize;
+            z-index: 1;
+        }
+
+        .selected {
+            outline: 2px solid rgb(58, 125, 250);
+            cursor: pointer;
+        }
+    </style>
+</body>
+
+</html>
